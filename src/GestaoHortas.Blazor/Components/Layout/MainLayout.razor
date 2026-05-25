@@ -1,0 +1,27 @@
+﻿@inherits LayoutComponentBase
+
+<div class="page">
+    <aside class="sidebar">
+        <div class="brand p-4">
+            <h3>Gestão de Hortas</h3>
+            <p class="text-muted mb-0">Cadastro em memória com menus laterais.</p>
+        </div>
+        <NavMenu />
+    </aside>
+
+    <main>
+        <div class="top-row px-4">
+            <span class="fw-bold">Painel de controle</span>
+        </div>
+
+        <article class="content px-4">
+            @Body
+        </article>
+    </main>
+</div>
+
+<div id="blazor-error-ui" data-nosnippet>
+    An unhandled error has occurred.
+    <a href="." class="reload">Reload</a>
+    <span class="dismiss">🗙</span>
+</div>

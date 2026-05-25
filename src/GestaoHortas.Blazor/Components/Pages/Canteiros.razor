@@ -1,0 +1,211 @@
+@page "/canteiros"
+@using GestaoHortas.Library.Application.Interfaces
+@using GestaoHortas.Library.Domain.Entities
+@inject ICanteiroRepository CanteiroRepository
+@inject ICultivoRepository CultivoRepository
+
+<PageTitle>Canteiros</PageTitle>
+
+<div class="page-title">
+    <div>
+        <h1>Canteiros</h1>
+        <p class="text-secondary">Cadastre, edite e pesquise canteiros com persistência em memória.</p>
+    </div>
+</div>
+
+<div class="row gy-4">
+    <div class="col-lg-7">
+        <div class="common-box">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <div>
+                    <h2 class="h5 mb-1">Pesquisa de Canteiros</h2>
+                    <p class="small text-muted mb-0">Busque por nome, tipo de solo ou status.</p>
+                </div>
+            </div>
+
+            <div class="mb-3">
+                <input class="form-control" placeholder="Pesquisar..." @bind="searchTerm" />
+            </div>
+
+            @if (!FilteredCanteiros.Any())
+            {
+                <div class="alert alert-info mb-0">Nenhum canteiro encontrado.</div>
+            }
+            else
+            {
+                <div class="list-group">
+                    @foreach (var canteiro in FilteredCanteiros)
+                    {
+                        <div class="list-group-item list-group-item-action mb-2 p-3 rounded-3 shadow-sm">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <strong>@canteiro.Nome</strong>
+                                    <div class="text-muted small">@canteiro.TipoSolo • @canteiro.Status</div>
+                                </div>
+                                <span class="badge bg-primary rounded-pill">@CultivoRepository.GetByCanteiro(canteiro.Id).Count()</span>
+                            </div>
+                            <div class="mt-2 text-secondary">
+                                @canteiro.Area m² • @canteiro.Localizacao.Endereco @if (!string.IsNullOrWhiteSpace(canteiro.Localizacao.Referencia)) { <span>• @canteiro.Localizacao.Referencia</span> }
+                            </div>
+                            <div class="mt-3">
+                                <button class="btn btn-sm btn-outline-primary me-2" @onclick="() => EditarCanteiro(canteiro)">Editar</button>
+                                <button class="btn btn-sm btn-outline-danger" @onclick="() => RemoverCanteiro(canteiro.Id)">Remover</button>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    </div>
+
+    <div class="col-lg-5">
+        <div class="common-box">
+            <h2 class="h5 mb-3">@((isEditMode) ? "Editar Canteiro" : "Novo Canteiro")</h2>
+
+            <div class="mb-3">
+                <label class="form-label">Nome</label>
+                <input class="form-control" @bind="current.CanteiroNome" />
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Área (m²)</label>
+                <input type="number" class="form-control" @bind="current.Area" min="0" step="0.1" />
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Endereço</label>
+                <input class="form-control" @bind="current.Endereco" />
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Referência</label>
+                <input class="form-control" @bind="current.Referencia" />
+            </div>
+            <div class="row g-3 mb-3">
+                <div class="col-6">
+                    <label class="form-label">Tipo de Solo</label>
+                    <select class="form-select" @bind="current.TipoSolo">
+                        @foreach (var option in Enum.GetValues<TipoSolo>())
+                        {
+                            <option value="@option">@option</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-6">
+                    <label class="form-label">Status</label>
+                    <select class="form-select" @bind="current.Status">
+                        @foreach (var option in Enum.GetValues<StatusCanteiro>())
+                        {
+                            <option value="@option">@option</option>
+                        }
+                    </select>
+                </div>
+            </div>
+
+            <div class="d-flex gap-2">
+                <button class="btn btn-primary" @onclick="SalvarCanteiro">Salvar</button>
+                @if (isEditMode)
+                {
+                    <button class="btn btn-secondary" @onclick="CancelarEdicao">Cancelar</button>
+                }
+            </div>
+
+            @if (!string.IsNullOrEmpty(alertMessage))
+            {
+                <div class="alert alert-info mt-3">@alertMessage</div>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    private string searchTerm = string.Empty;
+    private bool isEditMode;
+    private string alertMessage = string.Empty;
+
+    private CanteiroForm current = new();
+
+    private IEnumerable<Canteiro> FilteredCanteiros => CanteiroRepository.GetAll()
+        .Where(c => string.IsNullOrWhiteSpace(searchTerm)
+            || c.Nome.Contains(searchTerm, StringComparison.OrdinalIgnoreCase)
+            || c.TipoSolo.ToString().Contains(searchTerm, StringComparison.OrdinalIgnoreCase)
+            || c.Status.ToString().Contains(searchTerm, StringComparison.OrdinalIgnoreCase))
+        .OrderBy(c => c.Nome);
+
+    private void SalvarCanteiro()
+    {
+        if (string.IsNullOrWhiteSpace(current.CanteiroNome) || current.Area <= 0)
+        {
+            alertMessage = "Preencha o nome e a área do canteiro.";
+            return;
+        }
+
+        var canteiro = new Canteiro
+        {
+            Id = isEditMode ? current.Id : Guid.NewGuid(),
+            Nome = current.CanteiroNome,
+            Area = current.Area,
+            TipoSolo = current.TipoSolo,
+            Status = current.Status,
+            Localizacao = new Localizacao { Endereco = current.Endereco, Referencia = current.Referencia }
+        };
+
+        if (isEditMode)
+        {
+            CanteiroRepository.Update(canteiro);
+            alertMessage = "Canteiro atualizado com sucesso.";
+        }
+        else
+        {
+            CanteiroRepository.Add(canteiro);
+            alertMessage = "Canteiro criado com sucesso.";
+        }
+
+        LimparFormulario();
+    }
+
+    private void EditarCanteiro(Canteiro canteiro)
+    {
+        current = new CanteiroForm
+        {
+            Id = canteiro.Id,
+            CanteiroNome = canteiro.Nome,
+            Area = canteiro.Area,
+            Endereco = canteiro.Localizacao.Endereco,
+            Referencia = canteiro.Localizacao.Referencia,
+            TipoSolo = canteiro.TipoSolo,
+            Status = canteiro.Status
+        };
+        isEditMode = true;
+        alertMessage = string.Empty;
+    }
+
+    private void RemoverCanteiro(Guid id)
+    {
+        CanteiroRepository.Remove(id);
+        if (isEditMode && current.Id == id)
+        {
+            LimparFormulario();
+        }
+    }
+
+    private void CancelarEdicao()
+    {
+        LimparFormulario();
+    }
+
+    private void LimparFormulario()
+    {
+        current = new CanteiroForm();
+        isEditMode = false;
+        alertMessage = string.Empty;
+    }
+
+    private sealed class CanteiroForm
+    {
+        public Guid Id { get; set; }
+        public string CanteiroNome { get; set; } = string.Empty;
+        public decimal Area { get; set; }
+        public string Endereco { get; set; } = string.Empty;
+        public string Referencia { get; set; } = string.Empty;
+        public TipoSolo TipoSolo { get; set; } = TipoSolo.Argiloso;
+        public StatusCanteiro Status { get; set; } = StatusCanteiro.Ativo;
+    }
+}

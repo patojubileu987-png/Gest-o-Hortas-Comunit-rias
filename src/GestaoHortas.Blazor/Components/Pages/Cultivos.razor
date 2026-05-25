@@ -1,0 +1,238 @@
+@page "/cultivos"
+@using GestaoHortas.Library.Application.Interfaces
+@using GestaoHortas.Library.Domain.Entities
+@inject ICanteiroRepository CanteiroRepository
+@inject ICultivoRepository CultivoRepository
+@inject CultivoCompatibilityService CompatibilityService
+
+<PageTitle>Cultivos</PageTitle>
+
+<div class="page-title">
+    <div>
+        <h1>Cultivos</h1>
+        <p class="text-secondary">Registre cultivos, pesquise e valide compatibilidade entre espécies.</p>
+    </div>
+</div>
+
+<div class="row gy-4">
+    <div class="col-lg-7">
+        <div class="common-box">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <div>
+                    <h2 class="h5 mb-1">Busca de Cultivos</h2>
+                    <p class="small text-muted mb-0">Filtre por espécie, canteiro ou status.</p>
+                </div>
+            </div>
+
+            <div class="row g-3 mb-3">
+                <div class="col-md-6">
+                    <input class="form-control" placeholder="Pesquisar espécie..." @bind="searchTerm" />
+                </div>
+                <div class="col-md-6">
+                    <select class="form-select" @bind="filterCanteiroId">
+                        <option value="">Todos os canteiros</option>
+                        @foreach (var canteiro in CanteiroRepository.GetAll())
+                        {
+                            <option value="@canteiro.Id">@canteiro.Nome</option>
+                        }
+                    </select>
+                </div>
+            </div>
+
+            @if (!FilteredCultivos.Any())
+            {
+                <div class="alert alert-info mb-0">Nenhum cultivo encontrado.</div>
+            }
+            else
+            {
+                @foreach (var cultivo in FilteredCultivos)
+                {
+                    var canteiro = CanteiroRepository.GetById(cultivo.CanteiroId);
+                    <div class="card mb-3 shadow-sm">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <h5 class="card-title mb-1">@cultivo.Especie</h5>
+                                    <div class="text-muted small">Canteiro: @canteiro?.Nome</div>
+                                </div>
+                                <span class="badge bg-secondary">@cultivo.Status</span>
+                            </div>
+                            <div class="mt-3 small text-secondary">
+                                Plantio: @cultivo.DataPlantio:dd/MM/yyyy
+                                @if (cultivo.PrevisaoColheita.HasValue)
+                                {
+                                    <span>• Colheita: @cultivo.PrevisaoColheita:dd/MM/yyyy</span>
+                                }
+                            </div>
+                            <div class="mt-3">
+                                <select class="form-select form-select-sm w-auto d-inline-block me-2" value="@cultivo.Status" @onchange="e => AtualizarStatus(cultivo, e)">
+                                @foreach (var status in Enum.GetValues<StatusCultivo>())
+                                {
+                                    <option value="@status">@status</option>
+                                }
+                            </select>
+                            <button class="btn btn-sm btn-outline-danger" @onclick="() => RemoverCultivo(cultivo.Id)">Remover</button>
+                            </div>
+                        </div>
+                    </div>
+                }
+            }
+        </div>
+    </div>
+
+    <div class="col-lg-5">
+        <div class="common-box mb-4">
+            <h2 class="h5 mb-3">Novo Cultivo</h2>
+
+            <div class="mb-3">
+                <label class="form-label">Canteiro</label>
+                <select class="form-select" @bind="newCultivoCanteiroId">
+                    <option value="">Selecione um canteiro</option>
+                    @foreach (var canteiro in CanteiroRepository.GetAll())
+                    {
+                        <option value="@canteiro.Id">@canteiro.Nome</option>
+                    }
+                </select>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Espécie</label>
+                <input class="form-control" @bind="newEspecie" placeholder="Tomate" />
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Data de plantio</label>
+                <input type="date" class="form-control" @bind="newPlantio" />
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Previsão de colheita</label>
+                <input type="date" class="form-control" @bind="newColheita" />
+            </div>
+            <button class="btn btn-primary w-100" @onclick="AdicionarCultivo">Adicionar cultivo</button>
+
+            @if (!string.IsNullOrEmpty(operationMessage))
+            {
+                <div class="alert alert-info mt-3">@operationMessage</div>
+            }
+        </div>
+
+        <div class="common-box">
+            <h2 class="h5 mb-3">Compatibilidade</h2>
+            <div class="mb-3">
+                <label class="form-label">Espécie A</label>
+                <input class="form-control" @bind="compatEspecieA" placeholder="Feijão" />
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Espécie B</label>
+                <input class="form-control" @bind="compatEspecieB" placeholder="Tomate" />
+            </div>
+            <button class="btn btn-outline-primary w-100" @onclick="VerificarCompatibilidade">Verificar</button>
+
+            @if (compatResult is not null)
+            {
+                <div class="alert mt-3 @(compatResult.Value ? "alert-success" : "alert-warning")">
+                    @(compatResult.Value ? "Estas espécies são compatíveis." : "Estas espécies são incompatíveis.")
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    private string searchTerm = string.Empty;
+    private string filterCanteiroId = string.Empty;
+    private string newCultivoCanteiroId = string.Empty;
+    private string newEspecie = string.Empty;
+    private DateTime newPlantio = DateTime.Today;
+    private DateTime? newColheita;
+    private string? operationMessage;
+    private string compatEspecieA = string.Empty;
+    private string compatEspecieB = string.Empty;
+    private bool? compatResult;
+
+    private IEnumerable<Cultivo> FilteredCultivos => CultivoRepository.GetAll()
+        .Where(c => string.IsNullOrWhiteSpace(searchTerm)
+            || c.Especie.Contains(searchTerm, StringComparison.OrdinalIgnoreCase)
+            || CanteiroRepository.GetById(c.CanteiroId)?.Nome.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) == true
+            || c.Status.ToString().Contains(searchTerm, StringComparison.OrdinalIgnoreCase))
+        .Where(c => string.IsNullOrWhiteSpace(filterCanteiroId) || c.CanteiroId == Guid.Parse(filterCanteiroId))
+        .OrderBy(c => c.DataPlantio);
+
+    private void AdicionarCultivo()
+    {
+        operationMessage = string.Empty;
+        compatResult = null;
+
+        if (!Guid.TryParse(newCultivoCanteiroId, out var canteiroId))
+        {
+            operationMessage = "Selecione um canteiro válido.";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(newEspecie))
+        {
+            operationMessage = "Informe a espécie do cultivo.";
+            return;
+        }
+
+        var existeCanteiro = CanteiroRepository.GetById(canteiroId);
+        if (existeCanteiro == null)
+        {
+            operationMessage = "Canteiro não encontrado.";
+            return;
+        }
+
+        var activeCultivos = CultivoRepository.GetByCanteiro(canteiroId).Where(x => x.Status == StatusCultivo.Ativo);
+        var incompativel = activeCultivos.Any(x => !CompatibilityService.AreCompatible(newEspecie, x.Especie));
+
+        if (incompativel)
+        {
+            operationMessage = $"Atenção: '{newEspecie}' pode ser incompatível com cultivos ativos no canteiro.";
+        }
+
+        var cultivo = new Cultivo
+        {
+            CanteiroId = canteiroId,
+            Especie = newEspecie,
+            DataPlantio = newPlantio,
+            PrevisaoColheita = newColheita,
+            Status = StatusCultivo.Ativo
+        };
+
+        CultivoRepository.Add(cultivo);
+        operationMessage = (operationMessage.Length > 0 ? operationMessage + " " : string.Empty) + "Cultivo adicionado com sucesso.";
+        LimparFormulario();
+    }
+
+    private void AtualizarStatus(Cultivo cultivo, ChangeEventArgs args)
+    {
+        if (Enum.TryParse<StatusCultivo>(args.Value?.ToString(), out var status))
+        {
+            cultivo.Status = status;
+            CultivoRepository.Update(cultivo);
+        }
+    }
+
+    private void RemoverCultivo(Guid id)
+    {
+        CultivoRepository.Remove(id);
+    }
+
+    private void VerificarCompatibilidade()
+    {
+        if (string.IsNullOrWhiteSpace(compatEspecieA) || string.IsNullOrWhiteSpace(compatEspecieB))
+        {
+            compatResult = null;
+            operationMessage = "Preencha as duas espécies para verificar compatibilidade.";
+            return;
+        }
+
+        compatResult = CompatibilityService.AreCompatible(compatEspecieA, compatEspecieB);
+        operationMessage = null;
+    }
+
+    private void LimparFormulario()
+    {
+        newEspecie = string.Empty;
+        newPlantio = DateTime.Today;
+        newColheita = null;
+    }
+}

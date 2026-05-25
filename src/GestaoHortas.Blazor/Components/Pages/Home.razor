@@ -1,0 +1,46 @@
+﻿@page "/"
+
+@inject ICanteiroRepository CanteiroRepository
+@inject ICultivoRepository CultivoRepository
+
+<PageTitle>Home</PageTitle>
+
+<div class="page-title">
+    <div>
+        <h1>Bem-vindo à Gestão de Hortas</h1>
+        <p class="text-secondary">Use o menu lateral para cadastrar canteiros, registrar cultivos e consultar registros em memória.</p>
+    </div>
+</div>
+
+<div class="row row-cols-1 row-cols-md-3 g-4 mb-4">
+    <div class="col">
+        <div class="common-box h-100">
+            <h2 class="h6 mb-3">Canteiros</h2>
+            <p class="display-6 mb-2">@CanteiroRepository.GetAll().Count()</p>
+            <p class="text-muted mb-0">Canteiros cadastrados em memória.</p>
+        </div>
+    </div>
+    <div class="col">
+        <div class="common-box h-100">
+            <h2 class="h6 mb-3">Cultivos</h2>
+            <p class="display-6 mb-2">@CultivoRepository.GetAll().Count()</p>
+            <p class="text-muted mb-0">Cultivos mantidos em repositório em memória.</p>
+        </div>
+    </div>
+    <div class="col">
+        <div class="common-box h-100">
+            <h2 class="h6 mb-3">Compatibilidade</h2>
+            <p class="mb-2">Valide culturas antes de registrar com segurança.</p>
+            <p class="text-muted mb-0">Serviço de compatibilidade integrado.</p>
+        </div>
+    </div>
+</div>
+
+<div class="common-box">
+    <h2 class="h5 mb-3">Como usar</h2>
+    <ul>
+        <li>Cadastre um canteiro na tela <strong>Canteiros</strong>.</li>
+        <li>Em seguida, registre os cultivos na tela <strong>Cultivos</strong>.</li>
+        <li>Use o painel de busca e filtros para localizar registros rapidamente.</li>
+    </ul>
+</div>
