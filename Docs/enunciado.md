@@ -1,0 +1,3 @@
+# Exercício enunciado
+
+Desenvolva um sistema para gestão de hortas comunitárias. O sistema deve permitir o cadastro de canteiros, participantes, cultivos, tarefas e colheitas. Cada canteiro deve possuir localização, área, tipo de solo e status. Um cultivo deve estar associado a um canteiro e registrar espécie plantada, data de plantio, previsão de colheita e responsáveis. O sistema deve permitir registrar tarefas, acompanhar colheitas, consultar cultivos ativos e impedir uso simultâneo do mesmo canteiro por cultivos incompatíveis. A solução deve respeitar toda a estrutura de camadas definida no PRD.
